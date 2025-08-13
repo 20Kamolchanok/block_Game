@@ -1,0 +1,564 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>เกมต่อบล็อค</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        .draggable {
+            cursor: grab;
+            transition: transform 0.2s;
+        }
+        .draggable:active {
+            cursor: grabbing;
+            transform: scale(1.1);
+        }
+        .drop-zone {
+            border: 2px dashed #cbd5e1;
+            transition: all 0.3s;
+        }
+        .drop-zone.drag-over {
+            border-color: #3b82f6;
+            background-color: #dbeafe;
+        }
+        .block {
+            width: 40px;
+            height: 40px;
+            border: 2px solid #374151;
+            position: relative;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .target-block {
+            width: 40px;
+            height: 40px;
+            border: 2px solid #9ca3af;
+            background-color: #f3f4f6;
+            position: relative;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .triangle {
+            width: 0;
+            height: 0;
+            border-left: 18px solid transparent;
+            border-right: 18px solid transparent;
+            border-bottom: 32px solid currentColor;
+        }
+        .circle {
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            background-color: currentColor;
+        }
+        .square-shape {
+            width: 36px;
+            height: 36px;
+            background-color: currentColor;
+        }
+        .placed-block {
+            border-color: #10b981;
+            background-color: #10b981;
+        }
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+        .pulse {
+            animation: pulse 1s infinite;
+        }
+    </style>
+</head>
+<body class="bg-gradient-to-br from-purple-600 to-blue-600 min-h-screen font-sans">
+    <!-- Start Screen -->
+    <div id="start-screen" class="container mx-auto px-4 py-8 text-center">
+        <div class="bg-white rounded-2xl shadow-2xl p-12 max-w-2xl mx-auto">
+            <h1 class="text-5xl font-bold text-gray-800 mb-6">🧩 เกมต่อบล็อค</h1>
+            <div class="text-lg text-gray-600 mb-8 space-y-4">
+                <p>🎯 <strong>วิธีเล่น:</strong> ลากบล็อครูปทรงและสีต่างๆ มาวางให้ตรงกับรูปแบบเป้าหมาย</p>
+                <p>⏰ <strong>เวลา:</strong> 15 วินาทีต่อด่าน</p>
+                <p>🏆 <strong>เป้าหมาย:</strong> ผ่าน 10 ด่านให้ได้มากที่สุด</p>
+                <p>🔥 <strong>ความท้าทาย:</strong> ต้องจับคู่ทั้งรูปทรงและสีให้ถูกต้อง!</p>
+            </div>
+            <button id="start-game-btn" class="bg-gradient-to-r from-purple-500 to-blue-500 hover:from-purple-600 hover:to-blue-600 text-white text-2xl font-bold px-12 py-4 rounded-xl shadow-lg transform hover:scale-105 transition-all">
+                🎮 เริ่มเล่นเกม
+            </button>
+        </div>
+    </div>
+
+    <div id="game-screen" class="container mx-auto px-4 py-8 hidden">
+        <!-- Header -->
+        <div class="text-center mb-8">
+            <h1 class="text-4xl font-bold text-white mb-4">🧩 เกมต่อบล็อค</h1>
+            <div class="flex justify-center items-center space-x-8 text-white text-lg">
+                <div class="bg-white/20 px-4 py-2 rounded-lg">
+                    <span class="font-semibold">ด่าน: </span>
+                    <span id="level">1</span>/10
+                </div>
+                <div class="bg-white/20 px-4 py-2 rounded-lg">
+                    <span class="font-semibold">คะแนน: </span>
+                    <span id="score">0</span>
+                </div>
+                <div class="bg-white/20 px-4 py-2 rounded-lg">
+                    <span class="font-semibold">เวลา: </span>
+                    <span id="timer">15</span>s
+                </div>
+            </div>
+        </div>
+
+        <!-- Game Area -->
+        <div class="bg-white rounded-2xl shadow-2xl p-8 max-w-4xl mx-auto">
+            <!-- Target Pattern -->
+            <div class="mb-8">
+                <h3 class="text-xl font-semibold text-gray-800 mb-4 text-center">รูปแบบเป้าหมาย</h3>
+                <div id="target-pattern" class="flex justify-center">
+                    <!-- Target pattern will be generated here -->
+                </div>
+            </div>
+
+            <!-- Player Area -->
+            <div class="mb-8">
+                <h3 class="text-xl font-semibold text-gray-800 mb-4 text-center">วางบล็อคของคุณที่นี่</h3>
+                <div id="player-area" class="flex justify-center">
+                    <!-- Player area will be generated here -->
+                </div>
+            </div>
+
+            <!-- Available Blocks -->
+            <div class="mb-8">
+                <h3 class="text-xl font-semibold text-gray-800 mb-4 text-center">บล็อคที่ใช้ได้</h3>
+                <div id="available-blocks" class="flex justify-center space-x-4">
+                    <!-- Available blocks will be generated here -->
+                </div>
+            </div>
+
+            <!-- Control Buttons -->
+            <div class="flex justify-center space-x-4">
+                <button id="reset-btn" class="bg-yellow-500 hover:bg-yellow-600 text-white px-6 py-3 rounded-lg font-semibold transition-colors">
+                    🔄 รีเซ็ต
+                </button>
+                <button id="check-btn" class="bg-green-500 hover:bg-green-600 text-white px-6 py-3 rounded-lg font-semibold transition-colors">
+                    ✅ ตรวจสอบ
+                </button>
+
+            </div>
+        </div>
+    </div>
+
+        <!-- Game Over Modal -->
+        <div id="game-over-modal" class="fixed inset-0 bg-black/50 flex items-center justify-center hidden">
+            <div class="bg-white rounded-2xl p-8 text-center max-w-md mx-4">
+                <h2 id="game-over-title" class="text-3xl font-bold text-gray-800 mb-4"></h2>
+                <p id="game-over-message" class="text-lg text-gray-600 mb-6"></p>
+                <button id="restart-btn" class="bg-purple-500 hover:bg-purple-600 text-white px-8 py-3 rounded-lg font-semibold transition-colors">
+                    🎮 เล่นใหม่
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        class BlockPuzzleGame {
+            constructor() {
+                this.level = 1;
+                this.score = 0;
+                this.timeLeft = 15;
+                this.timer = null;
+                this.currentPattern = [];
+                this.playerPattern = [];
+                this.availableBlocks = [];
+                this.patterns = this.generatePatterns();
+                
+                this.init();
+            }
+
+            generatePatterns() {
+                const allPatterns = [
+                    // Simple patterns
+                    [[1, 1]], // Horizontal line
+                    [[1], [1]], // Vertical line
+                    [[1, 1], [1, 1]], // Square
+                    
+                    // L-shapes
+                    [[1, 1], [1, 0]],
+                    [[1, 0], [1, 1]],
+                    [[0, 1], [1, 1]],
+                    [[1, 1], [0, 1]],
+                    
+                    // T-shapes
+                    [[1, 1, 1], [0, 1, 0]],
+                    [[0, 1], [1, 1], [0, 1]],
+                    [[0, 1, 0], [1, 1, 1]],
+                    [[1, 0], [1, 1], [1, 0]],
+                    
+                    // Z-shapes
+                    [[1, 1, 0], [0, 1, 1]],
+                    [[0, 1, 1], [1, 1, 0]],
+                    [[1, 0], [1, 1], [0, 1]],
+                    [[0, 1], [1, 1], [1, 0]],
+                    
+                    // Complex shapes
+                    [[1, 0, 1], [1, 1, 1]],
+                    [[1, 1, 1], [1, 0, 1]],
+                    [[1, 1, 1], [0, 1, 0], [0, 1, 0]],
+                    [[0, 1, 0], [0, 1, 0], [1, 1, 1]],
+                    
+                    // Advanced patterns
+                    [[1, 1, 1, 1]],
+                    [[1], [1], [1], [1]],
+                    [[1, 1, 1, 1], [0, 1, 1, 0]],
+                    [[1, 0, 0, 1], [1, 1, 1, 1]],
+                    [[1, 1, 0], [1, 0, 0], [1, 1, 1]],
+                    [[0, 1, 1], [1, 1, 0], [1, 0, 0]]
+                ];
+                
+                // Randomly select 10 patterns from the 25 available
+                const shuffled = [...allPatterns].sort(() => Math.random() - 0.5);
+                return shuffled.slice(0, 10);
+            }
+
+            init() {
+                this.updateDisplay();
+                this.loadLevel();
+                this.setupEventListeners();
+            }
+
+            setupEventListeners() {
+                document.getElementById('start-game-btn').addEventListener('click', () => this.startGame());
+                document.getElementById('reset-btn').addEventListener('click', () => this.resetLevel());
+                document.getElementById('check-btn').addEventListener('click', () => this.checkPattern());
+                document.getElementById('restart-btn').addEventListener('click', () => this.restartGame());
+            }
+
+            startGame() {
+                document.getElementById('start-screen').classList.add('hidden');
+                document.getElementById('game-screen').classList.remove('hidden');
+                this.startTimer();
+            }
+
+            loadLevel() {
+                this.currentPattern = this.patterns[this.level - 1];
+                this.playerPattern = this.createEmptyPattern(this.currentPattern);
+                this.generateAvailableBlocks();
+                this.renderTargetPattern();
+                this.renderPlayerArea();
+                this.renderAvailableBlocks();
+            }
+
+            createEmptyPattern(pattern) {
+                return pattern.map(row => row.map(() => 0));
+            }
+
+            generateAvailableBlocks() {
+                const totalBlocks = this.currentPattern.flat().filter(cell => cell === 1).length;
+                this.availableBlocks = [];
+                
+                // Generate blocks with different colors and shapes
+                const colors = ['red', 'blue', 'green', 'yellow', 'purple', 'pink', 'orange', 'teal'];
+                const shapes = ['square-shape', 'circle', 'triangle'];
+                
+                // Create target pattern with specific color-shape combinations
+                this.targetBlocks = [];
+                for (let i = 0; i < totalBlocks; i++) {
+                    const colorShape = {
+                        color: colors[i % colors.length],
+                        shape: shapes[i % shapes.length]
+                    };
+                    this.targetBlocks.push(colorShape);
+                }
+                
+                // Create available blocks (shuffled order)
+                const shuffledTargets = [...this.targetBlocks].sort(() => Math.random() - 0.5);
+                for (let i = 0; i < totalBlocks; i++) {
+                    this.availableBlocks.push({
+                        id: i,
+                        color: shuffledTargets[i].color,
+                        shape: shuffledTargets[i].shape,
+                        used: false
+                    });
+                }
+            }
+
+            renderTargetPattern() {
+                const container = document.getElementById('target-pattern');
+                container.innerHTML = '';
+                
+                const patternDiv = document.createElement('div');
+                patternDiv.className = 'grid gap-1';
+                patternDiv.style.gridTemplateColumns = `repeat(${this.currentPattern[0].length}, 1fr)`;
+                
+                let targetIndex = 0;
+                this.currentPattern.forEach(row => {
+                    row.forEach(cell => {
+                        const blockDiv = document.createElement('div');
+                        if (cell === 1) {
+                            blockDiv.className = 'target-block pulse';
+                            blockDiv.style.color = this.targetBlocks[targetIndex].color;
+                            
+                            const shapeDiv = document.createElement('div');
+                            shapeDiv.className = this.targetBlocks[targetIndex].shape;
+                            blockDiv.appendChild(shapeDiv);
+                            
+                            targetIndex++;
+                        } else {
+                            blockDiv.className = 'w-10 h-10';
+                        }
+                        patternDiv.appendChild(blockDiv);
+                    });
+                });
+                
+                container.appendChild(patternDiv);
+            }
+
+            renderPlayerArea() {
+                const container = document.getElementById('player-area');
+                container.innerHTML = '';
+                
+                const patternDiv = document.createElement('div');
+                patternDiv.className = 'grid gap-1';
+                patternDiv.style.gridTemplateColumns = `repeat(${this.currentPattern[0].length}, 1fr)`;
+                
+                this.playerPattern.forEach((row, rowIndex) => {
+                    row.forEach((cell, colIndex) => {
+                        const blockDiv = document.createElement('div');
+                        blockDiv.className = 'drop-zone w-10 h-10 rounded';
+                        blockDiv.dataset.row = rowIndex;
+                        blockDiv.dataset.col = colIndex;
+                        
+                        if (cell > 0) {
+                            const block = this.availableBlocks.find(b => b.id === cell - 1);
+                            blockDiv.className += ` border-2 border-gray-800`;
+                            blockDiv.style.backgroundColor = '#e5e7eb';
+                            blockDiv.style.color = block.color;
+                            
+                            const shapeDiv = document.createElement('div');
+                            shapeDiv.className = block.shape;
+                            blockDiv.appendChild(shapeDiv);
+                        }
+                        
+                        this.setupDropZone(blockDiv);
+                        patternDiv.appendChild(blockDiv);
+                    });
+                });
+                
+                container.appendChild(patternDiv);
+            }
+
+            renderAvailableBlocks() {
+                const container = document.getElementById('available-blocks');
+                container.innerHTML = '';
+                
+                this.availableBlocks.forEach(block => {
+                    if (!block.used) {
+                        const blockDiv = document.createElement('div');
+                        blockDiv.className = `block draggable rounded cursor-grab`;
+                        blockDiv.style.backgroundColor = '#f3f4f6';
+                        blockDiv.style.color = block.color;
+                        blockDiv.dataset.blockId = block.id;
+                        blockDiv.draggable = true;
+                        
+                        const shapeDiv = document.createElement('div');
+                        shapeDiv.className = block.shape;
+                        blockDiv.appendChild(shapeDiv);
+                        
+                        this.setupDraggable(blockDiv);
+                        container.appendChild(blockDiv);
+                    }
+                });
+            }
+
+            setupDraggable(element) {
+                element.addEventListener('dragstart', (e) => {
+                    e.dataTransfer.setData('text/plain', e.target.dataset.blockId);
+                });
+            }
+
+            setupDropZone(element) {
+                element.addEventListener('dragover', (e) => {
+                    e.preventDefault();
+                    element.classList.add('drag-over');
+                });
+
+                element.addEventListener('dragleave', () => {
+                    element.classList.remove('drag-over');
+                });
+
+                element.addEventListener('drop', (e) => {
+                    e.preventDefault();
+                    element.classList.remove('drag-over');
+                    
+                    const blockId = parseInt(e.dataTransfer.getData('text/plain'));
+                    const row = parseInt(element.dataset.row);
+                    const col = parseInt(element.dataset.col);
+                    
+                    // Check if this position should have a block
+                    if (this.currentPattern[row][col] === 1) {
+                        // Remove block from current position if exists
+                        if (this.playerPattern[row][col] > 0) {
+                            const oldBlockId = this.playerPattern[row][col] - 1;
+                            this.availableBlocks[oldBlockId].used = false;
+                        }
+                        
+                        // Place new block
+                        this.playerPattern[row][col] = blockId + 1;
+                        this.availableBlocks[blockId].used = true;
+                        
+                        this.renderPlayerArea();
+                        this.renderAvailableBlocks();
+                    }
+                });
+            }
+
+            checkPattern() {
+                let correct = true;
+                let targetIndex = 0;
+                
+                for (let row = 0; row < this.currentPattern.length; row++) {
+                    for (let col = 0; col < this.currentPattern[row].length; col++) {
+                        if (this.currentPattern[row][col] === 1) {
+                            if (this.playerPattern[row][col] === 0) {
+                                correct = false;
+                                break;
+                            }
+                            
+                            // Check if color and shape match
+                            const placedBlockId = this.playerPattern[row][col] - 1;
+                            const placedBlock = this.availableBlocks[placedBlockId];
+                            const targetBlock = this.targetBlocks[targetIndex];
+                            
+                            if (placedBlock.color !== targetBlock.color || placedBlock.shape !== targetBlock.shape) {
+                                correct = false;
+                                break;
+                            }
+                            
+                            targetIndex++;
+                        }
+                    }
+                    if (!correct) break;
+                }
+                
+                if (correct) {
+                    this.score++;
+                    this.updateDisplay();
+                    this.showSuccess();
+                    
+                    if (this.level >= 10) {
+                        this.gameWin();
+                    } else {
+                        // Auto advance to next level after 1.5 seconds
+                        setTimeout(() => {
+                            this.nextLevel();
+                        }, 1500);
+                    }
+                } else {
+                    this.showError();
+                    // Don't give points for wrong answer, but still advance to next level
+                    if (this.level >= 10) {
+                        this.gameOver();
+                    } else {
+                        setTimeout(() => {
+                            this.nextLevel();
+                        }, 1500);
+                    }
+                }
+            }
+
+            showSuccess() {
+                // Add success animation
+                const playerArea = document.getElementById('player-area');
+                playerArea.style.animation = 'pulse 0.5s ease-in-out';
+                setTimeout(() => {
+                    playerArea.style.animation = '';
+                }, 500);
+            }
+
+            showError() {
+                // Add error animation
+                const playerArea = document.getElementById('player-area');
+                playerArea.style.animation = 'shake 0.5s ease-in-out';
+                setTimeout(() => {
+                    playerArea.style.animation = '';
+                }, 500);
+            }
+
+            nextLevel() {
+                this.level++;
+                this.timeLeft = 15;
+                this.updateDisplay();
+                this.loadLevel();
+                this.startTimer();
+            }
+
+            resetLevel() {
+                this.playerPattern = this.createEmptyPattern(this.currentPattern);
+                this.availableBlocks.forEach(block => block.used = false);
+                this.renderPlayerArea();
+                this.renderAvailableBlocks();
+            }
+
+            startTimer() {
+                if (this.timer) clearInterval(this.timer);
+                
+                this.timer = setInterval(() => {
+                    this.timeLeft--;
+                    this.updateDisplay();
+                    
+                    if (this.timeLeft <= 0) {
+                        this.gameOver();
+                    }
+                }, 1000);
+            }
+
+            updateDisplay() {
+                document.getElementById('level').textContent = this.level;
+                document.getElementById('score').textContent = this.score;
+                document.getElementById('timer').textContent = this.timeLeft;
+            }
+
+            gameOver() {
+                clearInterval(this.timer);
+                document.getElementById('game-over-title').textContent = '⏰ หมดเวลา!';
+                document.getElementById('game-over-message').textContent = `คุณทำได้ ${this.score} คะแนนจาก 10 คะแนน`;
+                document.getElementById('game-over-modal').classList.remove('hidden');
+            }
+
+            gameWin() {
+                clearInterval(this.timer);
+                document.getElementById('game-over-title').textContent = '🎉 ยินดีด้วย!';
+                document.getElementById('game-over-message').textContent = 'คุณผ่านทุกด่านแล้ว! คะแนนเต็ม 10/10';
+                document.getElementById('game-over-modal').classList.remove('hidden');
+            }
+
+            restartGame() {
+                this.level = 1;
+                this.score = 0;
+                this.timeLeft = 15;
+                document.getElementById('game-over-modal').classList.add('hidden');
+                document.getElementById('game-screen').classList.add('hidden');
+                document.getElementById('start-screen').classList.remove('hidden');
+                this.patterns = this.generatePatterns(); // Generate new random patterns
+                this.updateDisplay();
+                this.loadLevel();
+                if (this.timer) clearInterval(this.timer);
+            }
+        }
+
+        // Add shake animation
+        const style = document.createElement('style');
+        style.textContent = `
+            @keyframes shake {
+                0%, 100% { transform: translateX(0); }
+                25% { transform: translateX(-5px); }
+                75% { transform: translateX(5px); }
+            }
+        `;
+        document.head.appendChild(style);
+
+        // Start the game
+        new BlockPuzzleGame();
+    </script>
+<script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'96ad2fbc651f7336',t:'MTc1NDQ2OTE3Ni4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
+</html>
